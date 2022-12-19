@@ -1,0 +1,682 @@
+---
+title: "A3 - Modelos predictivos"
+subtitle: "Estadística Avanzada"
+author: "Leroy Deniz"
+date: "Actualizado: `r format(Sys.time(), '%d %B, %Y')`"
+geometry: "top=2cm,bottom=2cm"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(tidy.opts=list(width.cutoff=65), tidy=TRUE)
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+\vspace{2cm}
+
+\tableofcontents
+
+
+\newpage
+
+<br><br><br>
+
+# 0 Contexto
+
+------------------------------------------------------------------------
+
+## 0.1 Importación de librerías
+
+\vspace{0.5cm}
+
+```{r message=FALSE}
+library(ggplot2)
+library(caret)
+library(GGally)
+library(car)
+library(pROC)
+```
+
+\vspace{0.5cm}
+
+## 0.2 Funciones auxiliares
+
+\vspace{0.5cm}
+
+```{r}
+vertical <- function(tbl) {
+  t(t(tbl))
+}
+```
+
+\vspace{0.5cm}
+
+## 0.3 Lectura del fichero
+
+\vspace{0.5cm}
+
+```{r}
+df <- read.csv("datSat_Air.csv", sep=",", dec='.')
+vertical(sapply(df,class))
+```
+
+\newpage
+
+## 0.4 Conversión de variables
+
+\vspace{0.5cm}
+
+Conversión de las variables _integer_ a tipo _numeric_ y de _character_ a _factor_.
+
+\vspace{0.5cm}
+
+```{r}
+# Antes de convertir guardo satisfaction original para usar más adelante
+satisfaction_original <- df$satisfaction
+
+df$id <- as.numeric(df$id)
+df$Age <- as.numeric(df$Age)
+df$Distance <- as.numeric(df$Distance)
+df$Seat_comfort <- as.numeric(df$Seat_comfort)
+df$Food_drink <- as.numeric(df$Food_drink)
+df$Gate <- as.numeric(df$Gate)
+df$Wifi <- as.numeric(df$Wifi)
+df$Ent <- as.numeric(df$Ent)
+df$Ease_booking <- as.numeric(df$Ease_booking)
+df$Service <- as.numeric(df$Service)
+df$Baggage_handling <- as.numeric(df$Baggage_handling)
+df$Checkin_service <- as.numeric(df$Checkin_service)
+df$Cleanliness <- as.numeric(df$Cleanliness)
+df$Online_boarding <- as.numeric(df$Online_boarding)
+df$Departure_Delay <- as.numeric(df$Departure_Delay)
+df$Arrival_Delay <- as.numeric(df$Arrival_Delay)
+
+df$satisfaction <- factor(df$satisfaction)
+df$Gender <- factor(df$Gender)
+df$Customer_Type <- factor(df$Customer_Type)
+df$Type_Travel <- factor(df$Type_Travel)
+df$Class <- factor(df$Class)
+
+vertical(sapply(df,class))
+```
+
+\newpage
+
+
+
+
+
+
+
+
+
+
+
+# 1 Regresión lineal
+
+------------------------------------------------------------------------
+
+\vspace{0.5cm}
+
+## 1.1 Modelo de regresión lineal (variables cuentitativas)
+
+\vspace{0.5cm}
+
+Se quiere estudiar si la distancia entre destinos y el retraso de vuelo de salida, influyen o no en que un vuelo no llegue a la hora prefijada. Se pide:
+
+\vspace{0.5cm}
+
+a) Estimad por mínimos cuadrados ordinarios un modelo lineal que explique la variable _Arrival_Delay_ en función de la variable _Distance_. Interpretad.
+
+\vspace{0.5cm}
+
+<br><br>
+
+```{r }
+ad_model <- lm(formula=Arrival_Delay ~ Distance, df)
+summary(ad_model)
+```
+
+\vspace{0.5cm}
+
+La recta de regresión sería la siguiente:
+
+Arrival_Delay = 1.239 + 0.0039 * Distance_i
+
+\newpage
+
+```{r }
+ggplot(df, aes(x = Arrival_Delay, y = Distance)) +
+  geom_point() +
+  stat_smooth( method = "lm", se=FALSE)
+```
+
+\newpage 
+
+b) Se añadirá al modelo anterior la variable _Departure_Delay_. ¿Existe una mejora del ajuste?. Razonar.
+
+\vspace{0.5cm}
+
+```{r }
+ad_model2 <- lm(formula=Arrival_Delay ~ Distance+Departure_Delay, df)
+summary(ad_model2)
+```
+
+\newpage
+
+```{r }
+ggplot(df, aes(x = Arrival_Delay, y=Departure_Delay)) +
+  geom_point() +
+  stat_smooth( method = "lm", se=FALSE)
+```
+
+\newpage
+
+## 1.2 Modelo de regresión lineal (variables cuantitativas y cualitativas)
+
+\vspace{0.5cm}
+
+a) Se añadirá al modelo del apartado 1.b), las variables cualitativas ordinales Service, Food_drink y satisfaction, junto con la variable cualitatitva nominal Customer_Type. A la vista de los resultados, estudiar si son o no significativas. Decidid cuáles de las variables explicativas propuestas hasta el momento deben quedarse en el modelo de regresión lineal. Se le llamará modelo final ModelF.
+
+\vspace{0.5cm}
+
+Se realiza la conversión de la variable _satisfaction_ a tipo categórico ordinal.
+
+\vspace{0.5cm}
+
+```{r }
+df$satisfaction <- as.numeric(df$satisfaction)
+```
+
+\vspace{0.5cm}
+
+Se genera el modelo ampliando el del apartado 1.2.
+
+\vspace{0.5cm}
+
+```{r }
+ModelTmp <- lm(formula=Arrival_Delay ~ Distance+Departure_Delay+Service+Food_drink+satisfaction+Customer_Type, df)
+summary(ModelTmp)
+```
+
+\vspace{0.5cm}
+
+Las variables food y customer_type se van porque no son significantes
+
+\newpage
+
+El modelo finalmente queda definido por cuatro variables: _Distance_, _Departure_Delay_, _Service_ y _satisfaction_.
+
+\vspace{0.5cm}
+
+```{r }
+ModelF <- lm(formula=Arrival_Delay ~ Distance+Departure_Delay+satisfaction, df)
+summary(ModelF)
+```
+
+\vspace{0.5cm}
+
+b) Comprobad si existen o no problemas de colinealidad en dicho modelo final ModelF.
+
+\vspace{0.5cm}
+
+```{r}
+vif(ModelF)
+```
+
+\vspace{0.5cm}
+
+Tal como se puede aprecier en la tabla anterior, los valores VIF de las variables predictoras que conforman el modelo están muy próximos a 1, por lo que la multicolinealidad no es un problema para este modelo.
+
+\newpage
+
+## 1.3 Diagnosis del modelo
+
+\vspace{0.5cm}
+
+Para la diagnosis se escoge el ModelF construido y se piden dos gráficos: uno con los valores ajustados frente a los residuos (que nos permitirá ver si la varianza es constante) y el gráfico cuantil-cuantil que compara los residuos del modelo con los valores de una variable que se distribuye normalmente(QQ plot). Interpretad los resultados.
+
+\vspace{0.5cm}
+
+### Gráfico Arrival_Delay x Residuals
+
+\vspace{0.5cm}
+
+```{r}
+plot( ModelF$resid~ df$Arrival_Delay, main="Arrival_Delay x Residuals", xlab="Arrival_Delay", ylab= "Residuals")
+```
+
+\vspace{0.5cm}
+
+Arrival_Delay x Residual para Regresión múltiple de 4 variables
+
+\newpage
+
+### Gráfico QQ
+
+\vspace{0.5cm}
+
+```{r}
+qqnorm(ModelF$resid)
+qqline(ModelF$resid)
+```
+
+\vspace{0.5cm}
+
+## 1.4 Predicción del modelo
+
+\vspace{0.5cm}
+
+Según ModelF, calculad el retraso en la llegada del vuelo, si un viajero satisfecho ha recorrido una distancia de 2500 millas y ha tenido un retraso en la salida de 30 minutos. Se conoce que dicho viajero a puntuado con 3, su nivel de satisfacción sobre el servicio (Service).
+
+\vspace{0.5cm}
+
+```{r}
+x_satisfaction = 2
+x_distance = 2500
+x_departure_delay = 30
+x_service = 3
+
+predict(ModelF, data.frame("satisfaction"=x_satisfaction,"Distance"=x_distance, "Departure_Delay"=x_departure_delay),type ="response")
+
+```
+
+\vspace{0.5cm}
+
+Utilizando el modelo ModelF, podremos calcular que el retraso en la llegada del vuelo dadas las variables de entradas definidas, será de casi 30 minutos.
+
+\newpage
+
+
+
+
+
+
+
+
+
+# 2 Regresión logística
+
+------------------------------------------------------------------------
+
+\vspace{0.5cm}
+
+Se quiere estudiar cuáles son los factores que más influyen en el grado de satisafacción de los pasajeros de avión.
+
+Para ello, primero se creará una nueva variable dicotómica llamada satisfaction_re. Esta nueva variable está relacionada con los valores de la variable satisfaction. Se codificará de la siguiente forma: “neutral or dissatisfied” toma el valor 0 y “satisfied” el valor 1. (esta variable puede crearse desde el inicio de la actividad).
+
+\vspace{0.5cm}
+
+```{r}
+df$satisfaction_re <- satisfaction_original # Se genera la nueva variable 
+df$satisfaction_re[df$satisfaction_re == "neutral or dissatisfied"] <- 0
+df$satisfaction_re[df$satisfaction_re == "satisfied"] <- 1
+df$satisfaction_re <- factor(df$satisfaction_re) # se convierte a factor
+levels(df$satisfaction_re) # contenido de la nueva variable
+```
+
+\vspace{0.5cm}
+
+Se pide estimar un modelo de regresión logística tomando como variable dependiente satisfaction_re y un conjunto de variable explicativas de la base de datos, que se detallarán posteriormente.
+
+Para poder estimar de forma más objetiva la precisión del modelo, separaremos el conjunto de datos en dos partes: el conjunto de entrenamiento (training) y el conjunto de prueba (testing). Ajustaremos el modelo de regresión logística con el conjunto de entrenamiento, y evaluaremos la precisión con el conjunto de prueba.
+
+\vspace{0.5cm}
+
+## 2.1 Generación de los conjuntos de entrenamiento y test
+
+\vspace{0.5cm}
+
+Generad los conjuntos de datos para entrenar el modelo (training) y para testarlo (testing). Se puede fijar el tamaño de la muestra de entrenamiento a un 80% del original.
+
+\vspace{0.5cm}
+
+```{r}
+# Fijar la semilla para poder reproducir esta partición
+set.seed(24)
+
+# Cantidad de filas para train al 80%
+sample_size <- floor(0.8 * nrow(df))
+
+# División del dataset en train y test
+df_split <- sample(seq_len(nrow(df)), size = sample_size)
+
+# Asignación a sus dfs
+training <- df[df_split,]
+testing <- df[-df_split,]
+```
+
+\vspace{0.5cm}
+
+La cantidad de filas del data frame de _training_ es de `r nrow(training)` y el de _testing_ es de `r nrow(testing)`.
+
+\vspace{0.5cm}
+
+## 2.2 Estimación del modelo con el conjunto de entrenamiento e interpretación
+
+\vspace{0.5cm}
+
+Tomando como base, training:
+
+\vspace{0.5cm}
+
+a) Estimad el modelo de regresión logística siendo la variable dependiente satisfaction_re y tomando todas las variables explicativas de la base de datos. Tened en cuenta la variable satisfaction sin recodificar no puede ser una variable explicativa.
+
+\vspace{0.5cm}
+
+```{r}
+logitmodel <- glm(satisfaction_re ~ Gender+Customer_Type+Age+Type_Travel+Class+Distance+Departure_Delay+Arrival_Delay, data=training, family=binomial)
+summary(logitmodel)
+```
+
+\newpage
+
+b) Estudiad la presencia o no de colinealidad. En el caso de existir, eliminar la variable o variables que consideréis.
+
+\vspace{0.5cm}
+
+```{r}
+vif(logitmodel)
+```
+
+\vspace{0.5cm}
+
+Los valores del _GVIF_ (versión generalizada del coeficiente VIF), en la tercer columna de este nuevo modelo, presentan diferencias con respecto al modelo de regresión lineal del apartado anterior, puesto que aquí sí existe el problema de la colinealidad con las variables _Departure_Delay_ y _Arribal_Delay_, cuyos valores no son tan moderados en comparación con las demás. Al tomar como referencia los valores de esta tercera columna, se está mostrnado cuántas veces la variable es más grande que si era ortogonal a las otras.
+
+El nuevo modelo entonces no debería incluir las variables _Departure_Delay_ y _Arribal_Delay_.
+
+\vspace{0.5cm}
+
+```{r}
+logitmodel <- glm(satisfaction_re ~ Gender+Customer_Type+Age+Type_Travel+Class+Distance, data=training, family=binomial)
+```
+
+\newpage
+
+c) Una vez corregido el modelo por la presencia o no de colinealidad, se pide:
+ - Interpretad la salida del modelo final. Se le llamará ModlgF.
+ - Resumid cuáles de las variables pueden considerarse factores de riesgo o protección.
+
+\vspace{0.5cm}
+
+```{r}
+ModlgF <- logitmodel
+summary(ModlgF)
+```
+
+\newpage
+
+## 2.3 Cálculo de la OR (Odds-Ratio)
+
+\vspace{0.5cm}
+
+Según los resultados de ModlgF, calculad las OR, correspondientes. Interpretad los valores de las OR de las variables explicativas siguientes: Class,Customer_Type, Gender y Ent.
+
+\vspace{0.5cm}
+
+```{r}
+vertical(exp(coefficients(ModlgF)))
+```
+
+\vspace{0.5cm}
+
+Como se puede ver en la tabla anterior, algunas variables están descritas por más de dos valores, por lo que R considera la primera como la clase válida, agrupando todos los demás valores como un único grupo opuesto.
+
+De los datos anteriormente obtenidos podemos sacar las sigueintes conclusiones:
+
+\vspace{0.3cm}
+
+- Para la variable _Customer_Type_, cuyo Odd Ratio asciande a `r exp( ModlgF$coefficients[3])`, podemos decir que existe una asociación fuerte entre esta variable y _satisfaction_. En otras palabras, la probabilidad de una buena satisfacción para los _Customer_Type = Loyal Customer_ es  `r exp( ModlgF$coefficients[3])` veces mayor que para los demás tipos.
+
+- La probabilidad de considerar una satisfacción positiva para los individuos de sexo masculino es `r exp( ModlgF$coefficients[2])` veces menor que para los individuos del sexo femenino.
+
+- La probabilidad de considerar una satisfacción positiva para los individios de clase _Eco_ y _Eco Plus_ es de `r exp( ModlgF$coefficients[6])` y `r exp( ModlgF$coefficients[7])` veces menor respectivamente frente a aquellos de clase _Business_. 
+
+\vspace{0.5cm}
+
+## 2.4 Matriz de confusión
+
+\vspace{0.5cm}
+
+A continuación analizad la precisión de ModlgF, comparando la predicción del modelo contra el conjunto de prueba (testing). Se asumirá que la predicción del modelo es 1, satisfied, si la probabilidad del modelo de regresión logística es superior o igual a 0.5 y 0 en caso contrario. Analizad la matriz de confusión y las medidas de sensibilidad y especificidad.
+
+\vspace{0.5cm}
+
+Se generan las predicciones sobre el conjunto de testing utilizando el modelo de regresión logística _ModlgF_.
+
+\vspace{0.5cm}
+
+```{r}
+pred <- predict(ModlgF, newdata = testing, type='response')
+glm.pred <- ifelse(pred < 0.5, "0", "1")
+```
+
+\newpage
+
+Una vez realizadas las predicciones, se genera la matriz de confusión que se muestra a continuación.
+
+\vspace{0.5cm}
+
+```{r}
+# Valores reales y predichos
+real_predicted_data <- data.frame(observed=testing$satisfaction_re,predicted= glm.pred)
+
+positive <- sum(real_predicted_data$observed=="1")
+negative <- sum(real_predicted_data$observed=="0")
+predicted_positive <- sum(real_predicted_data$predicted=="1")
+predicted_negative <- sum(real_predicted_data$predicted=="0")
+total <- nrow(real_predicted_data)
+
+# Dataframe con los valores totales de observaciones según su valor real y el predicho
+totales_reales <- data.frame(positive, negative,predicted_positive,predicted_negative)
+totales_reales
+```
+
+```{r}
+tp<-sum(real_predicted_data$observed=="1" & real_predicted_data$predicted=="1")
+tn<-sum(real_predicted_data$observed=="0" & real_predicted_data$predicted=="0")
+fp<-sum(real_predicted_data$observed=="0" & real_predicted_data$predicted=="1")
+fn<-sum(real_predicted_data$observed=="1" & real_predicted_data$predicted=="0")
+
+matriz_confusion <- data.frame(tp,tn,fp,fn)
+matriz_confusion
+```
+
+\vspace{0.5cm}
+
+## 2.5 Predicción
+
+Según ModlgF, calculad la probabilidad de que el cliente encuestado número tres ( tercera fila de la base de datos) estuviera o no satisfecho con la aerolínea.
+
+\vspace{0.5cm}
+
+```{r}
+pred_2_5 <- predict(ModlgF, newdata = df[3,], type='response')
+```
+
+\vspace{0.5cm}
+
+La probabilidad de que el cliente estuviera satisfecho es de `r pred_2_5`.
+
+\newpage
+
+## 2.6 Bondad del ajuste
+
+\vspace{0.5cm}
+
+a) Evaluad la bondad del ajuste, mediante la devianza. Para que ModlgF sea bueno la devianza residual debe ser menor que la devianza nula. En ese caso el modelo predice la variable dependiente con mayor precisión.
+
+\vspace{0.5cm}
+
+```{r}
+summary(ModlgF)
+```
+
+\vspace{0.5cm}
+
+De la tabla anterior confirmamos que la devianza residual es menor que la devianza nula, con una diferencia de 25600 de la primera por debajo de la segunda.
+
+\newpage
+
+b) Evaluad la eficacia del modelo según el test Chi-cuadrado. En este caso el valor del estadístico Chi- cuadrado observado es igual a la diferencia de devianzas ( nula-residual). Calculad la probabilidad asociada al estadístico del contraste utilizando la función pchisq.
+
+\vspace{0.5cm}
+
+```{r}
+anova(ModlgF,test="Chisq")
+```
+
+\vspace{0.5cm}
+
+x
+
+\newpage
+
+## 2.7 Curva ROC
+
+\vspace{0.5cm}
+
+Dibujad la curva ROC y calcular el área debajo de la curva con Modlg. Discutid el resultado.
+
+\vspace{0.5cm}
+
+```{r}
+prob <- predict(ModlgF, testing, type="response")
+r <- roc(testing$satisfaction_re, prob, data=testing)
+plot(r)
+```
+
+\vspace{0.5cm}
+
+El área bajo la curva ROC asciende a `r auc(r)`, lo que indica que el modelo discrimina de manera adecuada, aunque está muy próximo al 0.8 que lo clasificaría como discriminación excelente.
+
+
+\newpage
+
+
+
+
+
+
+
+
+
+
+# 3 Informe Ejecutivo
+
+------------------------------------------------------------------------
+
+\vspace{0.5cm}
+
+## 3.1 Presentación de los principales resultados del estudio en una tabla
+
+\vspace{0.5cm}
+
+Presentad una tabla, de tal forma que en cada fila se detallen los resultados principales de cada apartado.
+Ejemplo correspondiente al apartado 1: la pregunta de investigación planteada, los resultados obtenidos (la significación o no de las variables explicativas, valores del coeficiente de determinación„) y la conclusiones. Se podría tomar un formato similar a la actividad anterior.
+
+\vspace{0.5cm}
+
+x
+
+\vspace{0.5cm}
+
+## 3.2 Resúmen ejecutivo. Conclusiones del análisis
+
+\vspace{0.5cm}
+
+Resumid las conclusiones del estudio para una audiencia no técnica, indicando las respuestas a las preguntas de investigación planteadas. El resumen no debe ocupar más de media página.
+Nota: esta pregunta trabaja la competencia de comunicación que es muy importante en el rol de analista de datos.
+
+\vspace{0.5cm}
+
+x
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
