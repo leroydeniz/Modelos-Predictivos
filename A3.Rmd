@@ -76,7 +76,8 @@ Conversión de las variables _integer_ a tipo _numeric_ y de _character_ a _fact
 # Antes de convertir guardo satisfaction original para usar más adelante
 satisfaction_original <- df$satisfaction
 
-df$id <- as.numeric(df$id)
+df$id <- NULL # Se elimina id que no es una variable
+
 df$Age <- as.numeric(df$Age)
 df$Distance <- as.numeric(df$Distance)
 df$Seat_comfort <- as.numeric(df$Seat_comfort)
@@ -141,11 +142,21 @@ summary(ad_model)
 
 \vspace{0.5cm}
 
-La recta de regresión sería la siguiente:
+En función del modelo lineal estimado, se puede decir que:
 
-Arrival_Delay = 1.239 + 0.0039 * Distance_i
+- el _R-squared_ está próximo a 0, lo que habla de un modelo muy poco ajustado, dicho de otra forma, que no podemos explicar o predecir el comportamiento de la primer variable en función de la otra.
+
+- el _p_value_ es 2.2e-16, es decir, quince ceros tras la coma para encontrar una cifra distinta a 0, podemos considerar que se ha obtenido una muy buena regresión, ya que su nivel de significación es de 0.05 y este valor es significativamente más pequeño.
+
+- el _Pr(>|t|)_ de la variable _Distance_ para este modelo lineal se corresponde con el _p_value_ del modelo, por lo que las conclusiones son las mismas que en el punto de arriba.
+
+- la _recta de regresión_ que se despresde de la información del modelo es _y = 7.239 + 0.00385 * Distance_.
 
 \newpage
+
+Se muestra la distribución espacial de los valores de ambas variables y la recta de regresión.
+
+\vspace{0.5cm}
 
 ```{r }
 ggplot(df, aes(x = Arrival_Delay, y = Distance)) +
@@ -160,17 +171,15 @@ b) Se añadirá al modelo anterior la variable _Departure_Delay_. ¿Existe una m
 \vspace{0.5cm}
 
 ```{r }
-ad_model2 <- lm(formula=Arrival_Delay ~ Distance+Departure_Delay, df)
+ad_model2 = update(ad_model, .~. + Departure_Delay)
 summary(ad_model2)
 ```
 
-\newpage
+\vspace{0.5cm}
 
-```{r }
-ggplot(df, aes(x = Arrival_Delay, y=Departure_Delay)) +
-  geom_point() +
-  stat_smooth( method = "lm", se=FALSE)
-```
+El _R-squared_ está, en este caso, próximo a 1, lo que indica que el modelo está bastante ajustado, es decir, que podemos predecir el comportamiento de una variable en función de la otra. El _p-value_ se mantiene en un valor considerablemente pequeño respecto del nivel de significancia mínimo, como para asegurar que seguimos teniendo una buena represión. 
+
+Además, los _p-value_ de cada una de las variables indican que deben ser consideradas en el modelo por su valor más pequeño que 0.05.
 
 \newpage
 
@@ -197,13 +206,15 @@ Se genera el modelo ampliando el del apartado 1.2.
 \vspace{0.5cm}
 
 ```{r }
-ModelTmp <- lm(formula=Arrival_Delay ~ Distance+Departure_Delay+Service+Food_drink+satisfaction+Customer_Type, df)
+ModelTmp = update(ad_model2, .~. + Departure_Delay+Service+Food_drink+satisfaction+Customer_Type)
 summary(ModelTmp)
 ```
 
 \vspace{0.5cm}
 
-Las variables food y customer_type se van porque no son significantes
+De acuerdo con el _p-value_ de cada una de las variables y con un nivel de significancia del 0.05, se puede descartar la variable _Food_drink_, ya que posee _p-value_ de 0.20464. 
+
+Además, se puede descartar también la variable _Customer_Type_ por ser confusoria y no ser realmente representativa del modelo con los datos que se tienen.
 
 \newpage
 
@@ -212,7 +223,7 @@ El modelo finalmente queda definido por cuatro variables: _Distance_, _Departure
 \vspace{0.5cm}
 
 ```{r }
-ModelF <- lm(formula=Arrival_Delay ~ Distance+Departure_Delay+satisfaction, df)
+ModelF <- lm(formula=Arrival_Delay ~ Distance+Departure_Delay+Service+satisfaction, df)
 summary(ModelF)
 ```
 
@@ -279,7 +290,7 @@ x_distance = 2500
 x_departure_delay = 30
 x_service = 3
 
-predict(ModelF, data.frame("satisfaction"=x_satisfaction,"Distance"=x_distance, "Departure_Delay"=x_departure_delay),type ="response")
+predict(ModelF, data.frame("satisfaction"=x_satisfaction,"Distance"=x_distance, "Service"=x_service, "Departure_Delay"=x_departure_delay),type ="response")
 
 ```
 
@@ -383,15 +394,9 @@ vif(logitmodel)
 
 \vspace{0.5cm}
 
-Los valores del _GVIF_ (versión generalizada del coeficiente VIF), en la tercer columna de este nuevo modelo, presentan diferencias con respecto al modelo de regresión lineal del apartado anterior, puesto que aquí sí existe el problema de la colinealidad con las variables _Departure_Delay_ y _Arribal_Delay_, cuyos valores no son tan moderados en comparación con las demás. Al tomar como referencia los valores de esta tercera columna, se está mostrnado cuántas veces la variable es más grande que si era ortogonal a las otras.
+Los valores del _GVIF_ (versión generalizada del coeficiente VIF), en la tercer columna de este nuevo modelo, presentan diferencias con respecto al modelo de regresión lineal del apartado anterior, puesto que aquí los valores son un poco más altos para las variables _Departure_Delay_ y _Arribal_Delay_. Al tomar como referencia los valores de esta tercera columna, se está mostrnado cuántas veces la variable es más grande que si era ortogonal a las otras.
 
-El nuevo modelo entonces no debería incluir las variables _Departure_Delay_ y _Arribal_Delay_.
-
-\vspace{0.5cm}
-
-```{r}
-logitmodel <- glm(satisfaction_re ~ Gender+Customer_Type+Age+Type_Travel+Class+Distance, data=training, family=binomial)
-```
+No obstante y según la teoría, los umbrales a partir de los cuales puede considerarse la existencia de problemas de colinealidad son 4 ó 10, por lo que este modelo no presenta problemas de colinealidad. El modelo final se mantiene tal y como está.
 
 \newpage
 
@@ -401,10 +406,32 @@ c) Una vez corregido el modelo por la presencia o no de colinealidad, se pide:
 
 \vspace{0.5cm}
 
+### Salida de Modelo final 
+
+\vspace{0.5cm}
+
 ```{r}
 ModlgF <- logitmodel
 summary(ModlgF)
 ```
+
+\newpage
+
+### Variables de protección y riesgo
+
+\vspace{0.5cm}
+
+Para poder interpretar qué variables pueden ser consideradas factores de riesgo y cuáles de protección, se toman en cuenta los OR donde, si es igual a la unidad, _"implica que no existe asociación entre la variable respuesta y la covariable"_; aquellos que superen la unidad son consideradas _variables de riesgo_ donde  _"un suceso es más probable en presencia de dicha variable"_, y aquellos cuyo OR no superen la unidad serán consideradas variables de protección, donde _"el suceso es menos probable en presencia de dicha covariable"_.
+
+\vspace{0.5cm}
+
+```{r}
+vertical(exp(coefficients(ModlgF)))
+```
+
+\vspace{0.5cm}
+
+La variable _Customer_Type_ es la única que puede ser considerada como factor de riesgo, mientras que _Age_, _Distance_, _Departure_Delay_ y _Arrival_Delay_ puede afirmarse que no existen asociación con la covariable dado que su OR es muy próximo a la unidad. El resto de las variables. como ser _Class_, _Gender_ y _Type_Travel_, pueden ser consideradas factores de protección, ya que su OR está por debajo de la unidad.
 
 \newpage
 
@@ -481,8 +508,41 @@ fp<-sum(real_predicted_data$observed=="0" & real_predicted_data$predicted=="1")
 fn<-sum(real_predicted_data$observed=="1" & real_predicted_data$predicted=="0")
 
 matriz_confusion <- data.frame(tp,tn,fp,fn)
+```
+
+\vspace{0.5cm}
+
+### Resultado de la matriz de confusión
+
+\vspace{0.5cm}
+
+```{r}
 matriz_confusion
 ```
+
+\vspace{0.5cm}
+
+### Sensibilidad
+
+\vspace{0.5cm}
+
+```{r}
+sensibilidad <- tp / (tp + fn) * 100
+```
+
+La sensibilidad del modelo es del `r sensibilidad`%.
+
+\vspace{0.5cm}
+
+### Especificidad
+
+\vspace{0.5cm}
+
+```{r}
+especificidad <- tn / (fp+tn) * 100
+```
+
+La especificidad del modelo es del `r especificidad`%.
 
 \vspace{0.5cm}
 
@@ -579,11 +639,27 @@ Ejemplo correspondiente al apartado 1: la pregunta de investigación planteada, 
 
 \vspace{0.5cm}
 
-x
+| Apartado | Comentario |
+|:--|:--------|
+| 1.1 | Se genera un modelo lineal con las variables _Arrival_Delay_ y _Distance_, que se mejora añadiéndole la variable _Departure_Delay_. |
+| 1.2 | Se eliminan las variables _Food_drink_ por su nivel de significancia y _Customer_Type_ por ser una variable confusoria. El modelo obtenido no presenta problemas de colinealidad. |
+| 1.3 | Se generan los gráficos de valores ajustados vs. residuos y cuantil-cuantil. |
+| 1.4 | Se genera una predicción utilizando modelo obtenido cuyo resultado arroja un retraso de casi 30 minutos según los datos servidos. |
+| 2 | Se realizan cambios a las variables del dataset, entre ellas la obtención de la nueva variable de clase _satisfaction_re_. |
+| 2.1 | Se realiza la separación de los conjuntos de entrenamiento y test, con 103556 y 258920 casos respectivamente. |
+| 2.2 | Se genera un modelo de regresión logística y descarta colinealidad por no tener GVIF significativos. Además, se definen aquellas variables que son factores de protección y riesgo. |
+| 2.3 | Se calculan los Odds-Ratio de todas las variables del modelo. |
+| 2.4 | Se calcula la matriz de confusión obteniendo los sigeintes valores: tp:11885, tn:7676, fp:4158, fn:2174. Además, se alcanza una sensibilidad del 85% y una especificidad del 56%.  |
+| 2.5 | Se genera la predicción según el modelo obtenido y se alcanza una probabilidad de 0.6358105 para el caso propuesto, coincidiendo con el valor real de la variable en el dataset. |
+| 2.6 | Se calcula la bondad del agente, confirmando que la devianza residual es menor que la devianza nula, concluyendo que el modelo predice la variable dependiente con mayor precisión. |
+
+\newpage
+
+## 3.2 Resúmen ejecutivo.0
 
 \vspace{0.5cm}
 
-## 3.2 Resúmen ejecutivo. Conclusiones del análisis
+### Conclusiones del análisis
 
 \vspace{0.5cm}
 
@@ -592,7 +668,13 @@ Nota: esta pregunta trabaja la competencia de comunicación que es muy important
 
 \vspace{0.5cm}
 
-x
+Un juego de datos puede ser un insumo invaluable a la hora de generar modelos que sean capaces de predecir futuros eventos e incluso de explicar una realidad partiendo de los datos que se tienen. No obstante, la información que estos datos está estrechamente ligada a las condiciones establecidas para los modelos y, además, el modelo elegido en sí. 
+
+Para la primera parte de este trabajo, donde se buscaba la predicción de un valor de retraso basándose en los datos obtenidos, la aplicación de un modeo de regresión lineal puede asumirse como la más adecuada, en virtud de su naturaleza regresiva que permite la predicción de variables continuas. La predicción del tiempo de atraso en la llegada del vuelo es de casi 30 minutos.
+
+En el segundo caso, se buscaba generar un modelo capaz de generar una clasificación sobre la satisfacción de un cliente, pudiendo precedir si sería positiva o no. El modelo de regresión logística, al proponer soluciones de tipo probabilística, facilita esta tarea pudiendo establecer un grado de asignación según un margen capaz de definir la clase. Para este caso, una predicción de más de 0.5 corresponde a un _satisfecho_ y menor de ese valor a un _no satisfecho_.
+
+La predicción final, basándose en los datos del tercer registro del dataset original, asciente a una probabilidad de `r pred_2_5`, por lo que se corresponde con un _satisfecho_, concordando con el valor original y correcto del propio dataset.
 
 
 
